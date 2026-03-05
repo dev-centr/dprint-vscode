@@ -33,6 +33,8 @@ export class WorkspaceService implements vscode.DocumentFormattingEditProvider {
   readonly #pluginSuggestionShown = new Set<string>();
   /** Workspace folder URIs we already offered "Create dprint.jsonc" for. */
   readonly #createConfigOfferShown = new Set<string>();
+  /** Folder URIs we already suggested adding code-workspace association for. */
+  readonly #codeWorkspaceAssociationSuggested = new Set<string>();
 
   #disposed = false;
 
@@ -58,27 +60,59 @@ export class WorkspaceService implements vscode.DocumentFormattingEditProvider {
     token: vscode.CancellationToken,
   ) {
     const folder = this.#getFolderForUri(document.uri);
-    const result = await folder?.provideDocumentFormattingEdits(document, options, token);
-    if (result === undefined) {
-      if (folder != null) {
-        this.#maybeSuggestPlugin(document, folder);
-      } else {
+    if (folder == null) {
+      if (this.#folders.length === 0) {
+        this.#logger.logWarn("Format requested but no dprint configuration file found.");
+        vscode.window.showErrorMessage(
+          "dprint: No configuration file found. Run 'dprint init' or add a dprint.jsonc to your project root to enable formatting.",
+        );
         this.#maybeOfferCreateConfig(document);
       }
+      return [];
+    }
+    const result = await folder.provideDocumentFormattingEdits(document, options, token);
+    if (result === undefined) {
+      this.#maybeSuggestPlugin(document, folder);
     }
     return result;
   }
 
-  #maybeSuggestPlugin(document: vscode.TextDocument, folder: FolderService) {
-    const langId = document.languageId;
-    if (!ALL_DPRINT_SUPPORTABLE_LANGUAGE_IDS.has(langId)) {
+  #maybeSuggestCodeWorkspaceAssociation(_document: vscode.TextDocument, folder: FolderService) {
+    const key = folder.uri.toString();
+    if (this.#codeWorkspaceAssociationSuggested.has(key)) {
       return;
     }
+    this.#codeWorkspaceAssociationSuggested.add(key);
+    const configDocs = "Config docs";
+    this.#logger.logInfo(
+      "dprint JSON plugin does not match .code-workspace by default. Add \"**/*.code-workspace\" to json.associations in dprint config.",
+    );
+    vscode.window.showInformationMessage(
+      "dprint: The JSON plugin doesn't match .code-workspace files by default. Add \"**/*.code-workspace\" to the json.associations array in your dprint config, then run Dprint: Restart.",
+      configDocs,
+    ).then((choice) => {
+      if (choice === configDocs) {
+        vscode.env.openExternal(vscode.Uri.parse("https://dprint.dev/config#associations"));
+      }
+    });
+  }
+
+  #maybeSuggestPlugin(document: vscode.TextDocument, folder: FolderService) {
+    const langId = document.languageId;
     const editorInfo = folder.getEditorInfo();
     if (editorInfo == null) {
       return;
     }
     const supported = getSupportedLanguageIds(editorInfo.plugins);
+
+    if (langId === "code-workspace" && supported.includes("jsonc")) {
+      this.#maybeSuggestCodeWorkspaceAssociation(document, folder);
+      return;
+    }
+
+    if (!ALL_DPRINT_SUPPORTABLE_LANGUAGE_IDS.has(langId)) {
+      return;
+    }
     if (supported.includes(langId)) {
       return;
     }

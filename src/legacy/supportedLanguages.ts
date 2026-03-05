@@ -60,8 +60,8 @@ const EXTENSION_AND_FILENAME_TO_LANGUAGE_ID: Readonly<Record<string, string | st
   // C# / VB (Roslyn process plugin)
   ".cs": "csharp",
   ".vb": "vb",
-  // Code-workspace (VS Code uses jsonc)
-  ".code-workspace": "jsonc",
+  // Code-workspace (VS Code language ID is "code-workspace"; same plugin as jsonc)
+  ".code-workspace": ["jsonc", "code-workspace"],
 };
 
 /**
@@ -98,6 +98,10 @@ export function getSupportedLanguageIds(plugins: ReadonlyArray<PluginInfo>): str
       }
     }
   }
+  // VS Code uses language id "code-workspace" for .code-workspace files; same plugin as jsonc
+  if (ids.has("jsonc")) {
+    ids.add("code-workspace");
+  }
   return [...ids];
 }
 
@@ -118,6 +122,7 @@ export interface PluginSuggestion {
 export const LANGUAGE_ID_TO_PLUGIN_SUGGESTION: Readonly<Record<string, PluginSuggestion>> = {
   json: { name: "JSON", helpUrl: "https://dprint.dev/plugins/json", pluginUrl: "https://plugins.dprint.dev/json-0.21.1.wasm" },
   jsonc: { name: "JSON", helpUrl: "https://dprint.dev/plugins/json", pluginUrl: "https://plugins.dprint.dev/json-0.21.1.wasm" },
+  "code-workspace": { name: "JSON", helpUrl: "https://dprint.dev/plugins/json", pluginUrl: "https://plugins.dprint.dev/json-0.21.1.wasm" },
   typescript: { name: "TypeScript", helpUrl: "https://dprint.dev/plugins/typescript", pluginUrl: "https://plugins.dprint.dev/typescript-0.95.15.wasm" },
   typescriptreact: { name: "TypeScript", helpUrl: "https://dprint.dev/plugins/typescript", pluginUrl: "https://plugins.dprint.dev/typescript-0.95.15.wasm" },
   javascript: { name: "TypeScript", helpUrl: "https://dprint.dev/plugins/typescript", pluginUrl: "https://plugins.dprint.dev/typescript-0.95.15.wasm" },
