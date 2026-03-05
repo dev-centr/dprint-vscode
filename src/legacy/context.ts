@@ -4,6 +4,7 @@ import type { ExtensionBackend } from "../ExtensionBackend";
 import type { Logger } from "../logger";
 import { ActivatedDisposables, HttpsTextDownloader, ObjectDisposedError } from "../utils";
 import { ConfigJsonSchemaProvider } from "./ConfigJsonSchemaProvider";
+import { getSupportedLanguageIds } from "./supportedLanguages";
 import { type FolderInfos, WorkspaceService } from "./WorkspaceService";
 
 export function activateLegacy(
@@ -54,13 +55,14 @@ export function activateLegacy(
       return;
     }
 
+    const allPlugins = allFolderInfos.flatMap(f => f.editorInfo.plugins);
+    const supportedLanguageIds = getSupportedLanguageIds(allPlugins);
     const documentSelectors: vscode.DocumentFilter[] = [
       ...formattingPatterns.map(pattern => ({ scheme: "file", pattern })),
-      // Explicitly register for jsonc and json so the extension appears as a formatter
-      // choice for these languages (VS Code does not reliably associate glob-only
-      // selectors with language IDs like jsonc).
-      { scheme: "file", language: "jsonc" },
-      { scheme: "file", language: "json" },
+      // Explicitly register for each language we have a plugin for, so the extension
+      // appears in the formatter list (VS Code does not reliably associate glob-only
+      // selectors with language IDs like jsonc, yaml, graphql, etc.).
+      ...supportedLanguageIds.map(language => ({ scheme: "file" as const, language })),
     ];
     resourceStores.push(
       vscode.languages.registerDocumentFormattingEditProvider(
