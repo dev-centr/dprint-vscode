@@ -54,9 +54,17 @@ export function activateLegacy(
       return;
     }
 
+    const documentSelectors: vscode.DocumentFilter[] = [
+      ...formattingPatterns.map(pattern => ({ scheme: "file", pattern })),
+      // Explicitly register for jsonc and json so the extension appears as a formatter
+      // choice for these languages (VS Code does not reliably associate glob-only
+      // selectors with language IDs like jsonc).
+      { scheme: "file", language: "jsonc" },
+      { scheme: "file", language: "json" },
+    ];
     resourceStores.push(
       vscode.languages.registerDocumentFormattingEditProvider(
-        formattingPatterns.map(pattern => ({ scheme: "file", pattern })),
+        documentSelectors,
         {
           provideDocumentFormattingEdits(document, options, token) {
             return workspaceService.provideDocumentFormattingEdits(document, options, token);
